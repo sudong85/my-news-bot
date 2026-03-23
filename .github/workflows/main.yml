@@ -1,0 +1,23 @@
+name: 5MinuteNewsBot
+
+on:
+  schedule:
+    - cron: '*/5 * * * *' # 5분마다 실행 (네트워크 헬스체크 주기와 비슷함)
+  workflow_dispatch: # 수동 실행 버튼 생성
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4 python-telegram-bot
+      - name: Run Bot
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: python 시황불러오기.py
