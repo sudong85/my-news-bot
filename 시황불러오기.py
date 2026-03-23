@@ -7,13 +7,13 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 from datetime import datetime
 
-# --- [하이브리드 설정] ---
+# --- [설정 정보] ---
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN") or "8789285993:AAH8chpk0xU_TniwibdlyVM8tnqLwp-iN3I"
 CHAT_ID = os.getenv("CHAT_ID") or "610199821"
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-def get_naver_news(search_word):
+def get_latest_news(count=20):
     url = "https://finance.naver.com/news/mainnews.naver"
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36'}
     
@@ -23,7 +23,8 @@ def get_naver_news(search_word):
         news_items = soup.select('.mainNewsList .articleSubject a')
         
         found_news = []
-        for anchor in news_items[:100]: # 100개 스캔
+        # [수정] 상위 20개로 확장
+        for i, anchor in enumerate(news_items[:count], 1):
             title = anchor.get_text(strip=True)
             raw_link = anchor['href']
             
@@ -32,34 +33,32 @@ def get_naver_news(search_word):
             
             if aid and oid:
                 clean_link = f"https://n.news.naver.com/mnews/article/{oid.group(1)}/{aid.group(1)}"
-                if search_word in title:
-                    found_news.append(f"📍 *{title}*\n[👉 본문 읽기]({clean_link})")
+                found_news.append(f"{i}. *{title}*\n[👉 본문]({clean_link})")
         
         if found_news:
-            # [Q3 반영] 상위 5개만 슬라이싱하여 시인성 확보
-            top_5 = found_news[:5]
-            return f"🚀 '{search_word}' 최신 뉴스 5건 (총 {len(found_news)}건 중)\n\n" + "\n\n".join(top_5)
+            now_str = datetime.now().strftime('%Y-%m-%d %H:%M')
+            return f"📢 실시간 주요 뉴스 TOP {len(found_news)} ({now_str})\n\n" + "\n\n".join(found_news)
         else:
-            return f"❓ 최근 100개 중 '{search_word}' 관련 기사가 없습니다."
+            return "❓ 현재 업데이트된 뉴스가 없습니다."
     except Exception as e:
-        return f"❌ 오류: {e}"
+        return f"❌ 오류 발생: {e}"
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if str(update.message.chat_id) == CHAT_ID:
-        await update.message.reply_text(get_naver_news(update.message.text), parse_mode='Markdown', disable_web_page_preview=True)
+        # 사용자가 아무 글자나 입력하면 무조건 최신 20개를 쏴줍니다.
+        await update.message.reply_text(get_latest_news(20), parse_mode='Markdown', disable_web_page_preview=True)
 
 if __name__ == '__main__':
     if os.getenv("GITHUB_ACTIONS") == "true":
-        print("🤖 GitHub Actions 모드 실행")
+        print("🤖 GitHub Actions: 정기 배달 모드 실행 중...")
         import asyncio
         from telegram import Bot
         async def send_auto_news():
             bot = Bot(token=TELEGRAM_TOKEN)
-            # [Q1 반영] 배달받고 싶은 키워드를 여기서 수정하세요 (예: "증시")
-            await bot.send_message(chat_id=CHAT_ID, text=get_naver_news("증시"), parse_mode='Markdown')
+            await bot.send_message(chat_id=CHAT_ID, text=get_latest_news(20), parse_mode='Markdown')
         asyncio.run(send_auto_news())
     else:
-        print("💻 PC 모드 대기 중...")
+        print("💻 PC 모드: 아무 메시지나 입력하면 최신 뉴스 20개를 가져옵니다.")
         app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
         app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
         app.run_polling()
