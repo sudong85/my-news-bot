@@ -2,11 +2,12 @@ name: ScheduledNewsBot
 
 on:
   schedule:
-    # 한국 시간 기준: 08:50, 12:00, 14:00 (월~금 실행)
-    - cron: '50 23 * * 0-4' # 한국 08:50 (일요일 23:50 UTC가 월요일 08:50 KST)
-    - cron: '0 3 * * 1-5'   # 한국 12:00
-    - cron: '0 5 * * 1-5'   # 한국 14:00
-  workflow_dispatch: # 수동 실행 버튼 유지
+    # 1. 장 시작 직전 (한국 08:50)
+    - cron: '50 23 * * 0-4' 
+    # 2. 장 중 매시 정각 (한국 10:00 ~ 16:00)
+    # UTC 01:00~07:00 가 한국 10시~16시입니다.
+    - cron: '0 1-7 * * 1-5'
+  workflow_dispatch: # 수동 실행 버튼
 
 jobs:
   build:
@@ -14,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/python-setup@v4
         with:
           python-version: '3.9'
       - name: Install dependencies
