@@ -5,7 +5,8 @@ import re
 from bs4 import BeautifulSoup
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
 
 # --- [설정 정보] ---
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN") or "8789285993:AAH8chpk0xU_TniwibdlyVM8tnqLwp-iN3I"
@@ -36,7 +37,8 @@ def get_latest_news(count=20):
                 found_news.append(f"{i}. *{title}*\n[👉 본문]({clean_link})")
         
         if found_news:
-            now_str = datetime.now().strftime('%Y-%m-%d %H:%M')
+            KST = timezone(timedelta(hours=9))
+            now_str = datetime.now(KST).strftime('%Y-%m-%d %H:%M')
             return f"📢 실시간 주요 뉴스 TOP {len(found_news)} ({now_str})\n\n" + "\n\n".join(found_news)
         else:
             return "❓ 현재 업데이트된 뉴스가 없습니다."
