@@ -1,24 +1,28 @@
 name: ScheduledNewsBot
-
 on:
   schedule:
-    # 1. 장 시작 직전 (한국 08:50)
-    - cron: '50 23 * * 0-4' 
-    # 2. 장 중 매시 정각 (한국 10:00 ~ 16:00)
-    - cron: '0 1-7 * * 1-5'
-  workflow_dispatch: # 수동 실행 버튼
+    # [수정] 한국시간 기준 매시간 정각 (KST = UTC+9)
+    # 08:00 KST = 23:00 UTC (전날)
+    - cron: '0 23 * * 0-4'   # 월~금 08:00 KST
+    # 09:00~16:00 KST = 00:00~07:00 UTC
+    - cron: '0 0-7 * * 1-5'  # 월~금 09:00~16:00 KST (매시 정각)
+
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
       - name: Set up Python
-        uses: actions/setup-python@v4  # <-- 이 부분의 오타를 수정했습니다
+        uses: actions/setup-python@v4
         with:
           python-version: '3.9'
+
       - name: Install dependencies
         run: pip install requests beautifulsoup4 python-telegram-bot
+
       - name: Run Bot
         env:
           TELEGRAM_TOKEN: ${{ secrets.BOT_TOKEN }}
