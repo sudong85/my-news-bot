@@ -1,41 +1,40 @@
 name: ScheduledNewsBot
+
 on:
   schedule:
-    # 한국시간 08:00 KST = 23:00 UTC (전날 일~목)
-    - cron: '0 23 * * 0-4'
-    # 한국시간 09:00 ~ 16:00 KST = 00:00 ~ 07:00 UTC (월~금)
-    - cron: '0 0-7 * * 1-5'
-  workflow_dispatch: # 수동 실행 버튼
- 
+    - cron: '0 23 * * 0-4'     # 한국시간 08:00 KST (월~금 장 시작 전)
+    - cron: '0 0-7 * * 1-5'    # 한국시간 09:00~16:00 KST 매시 정각 (월~금)
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # 더미 커밋 push 권한
- 
+      contents: write
+
     steps:
       - uses: actions/checkout@v3
- 
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
- 
+
       - name: Install dependencies
         run: pip install requests beautifulsoup4 python-telegram-bot
- 
+
       - name: Run Bot
         env:
           TELEGRAM_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
         run: python 시황불러오기.py
- 
-      - name: Keep Alive (저장소 활성화 유지용 더미 커밋)
+
+      - name: Keep Alive
+        if: always()    # ← 핵심 수정: Run Bot 실패해도 반드시 실행
         run: |
           git config user.email "bot@github.com"
           git config user.name "GitHub Actions Bot"
           echo "last_run=$(date '+%Y-%m-%d %H:%M:%S')" > last_run.txt
           git add last_run.txt
-          git commit -m "keep alive: $(date '+%Y-%m-%d %H:%M:%S')"
-          git push
- 
+          git commit -m "keep alive: $(date '+%Y-%m-%d %H:%M:%S')" || echo "Nothing to commit"
+          git push || echo "Push skipped"
