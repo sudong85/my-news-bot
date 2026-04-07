@@ -7,13 +7,12 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timezone, timedelta
 
 # --- [설정 정보] ---
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN") or "여기에_본인_토큰"
+CHAT_ID = os.getenv("CHAT_ID") or "여기에_본인_ID"
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 def escape_markdown(text: str) -> str:
-    """텔레그램 MarkdownV2 특수문자 이스케이프"""
     special_chars = r'_*[]()~`>#+-=|{}.!'
     return re.sub(f'([{re.escape(special_chars)}])', r'\\\1', text)
 
@@ -36,9 +35,8 @@ def get_latest_news(count=20):
             
             if aid and oid:
                 clean_link = f"https://n.news.naver.com/mnews/article/{oid.group(1)}/{aid.group(1)}"
-                safe_title = escape_markdown(title)  # ← 특수문자 이스케이프
-                safe_link = escape_markdown(clean_link)
-                found_news.append(f"{i}\\. *{safe_title}*\n[👉 본문]({safe_link})")
+                safe_title = escape_markdown(title)
+                found_news.append(f"{i}\\. *{safe_title}*\n[👉 본문]({clean_link})")
         
         if found_news:
             KST = timezone(timedelta(hours=9))
@@ -51,25 +49,45 @@ def get_latest_news(count=20):
         return f"❌ 오류 발생: {escape_markdown(str(e))}"
 
 def send_telegram(text: str):
-    """requests로 직접 전송 (python-telegram-bot 불필요)"""
-    if not TELEGRAM_TOKEN or not CHAT_ID:
-        raise ValueError("TELEGRAM_TOKEN 또는 CHAT_ID가 설정되지 않았습니다.")
-    
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
         "chat_id": CHAT_ID,
         "text": text,
-        "parse_mode": "MarkdownV2",          # ← V2로 변경
+        "parse_mode": "MarkdownV2",
         "disable_web_page_preview": True
     }
     res = requests.post(url, json=payload, timeout=10)
-    res.raise_for_status()  # 전송 실패 시 예외 발생
+    res.raise_for_status()
     logging.info("텔레그램 전송 성공")
 
-if __name__ == '__main__':
+# ──────────────────────────────────────────
+# GitHub Actions 모드 (스케줄 자동 전송)
+# ──────────────────────────────────────────
+if os.getenv("GITHUB_ACTIONS") == "true":
+    print("🤖 GitHub Actions: 정기 배달 모드 실행 중...")
     try:
-        news_text = get_latest_news(20)
-        send_telegram(news_text)
+        send_telegram(get_latest_news(20))
     except Exception as e:
         logging.error(f"실행 오류: {e}")
-        sys.exit(1)  # GitHub Actions에 실패 신호 전달
+        sys.exit(1)
+
+# ──────────────────────────────────────────
+# 로컬 PC 모드 (텔레그램 메시지 응답 봇)
+# ──────────────────────────────────────────
+else:
+    from telegram import Update
+    from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
+
+    print("💻 PC 모드: 텔레그램에 아무 메시지나 입력하면 최신 뉴스를 가져옵니다.")
+
+    async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if str(update.message.chat_id) == CHAT_ID:
+            await update.message.reply_text(
+                get_latest_news(20),
+                parse_mode='MarkdownV2',
+                disable_web_page_preview=True
+            )
+
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+    app.run_polling()
